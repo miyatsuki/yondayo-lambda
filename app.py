@@ -1,14 +1,28 @@
+import datetime
 import json
+import os
 import pathlib
-from typing import List
+from typing import Dict, List, NamedTuple
 import boto3
 import requests
+from supabase import create_client, Client
 from PIL import Image, ImageDraw, ImageFont
 
 font = ImageFont.truetype("KleeOne-Regular.ttf", 40)
 small_font = ImageFont.truetype("KleeOne-Regular.ttf", 20)
 
 row_height = 180
+
+
+class ProceedLog(NamedTuple):
+    book_id: int
+    title: str
+    url: str
+    image_url: str
+    before_proceed: int
+    after_proceed: int
+    total: int
+    created_at: datetime.datetime
 
 
 def create_row(
@@ -20,20 +34,23 @@ def create_row(
 ):
     row = Image.new("RGB", (1200, row_height), (256, 256, 256))
 
-    image = Image.open(image_file)
-    width, height = image.size
+    if image_file:
+        image = Image.open(image_file)
+        width, height = image.size
 
-    scale_h = row_height / height
-    scale_w = 200 / width
-    scale = min(scale_h, scale_w)
+        scale_h = row_height / height
+        scale_w = 200 / width
+        scale = min(scale_h, scale_w)
 
-    resized_size = (int(width * scale), int(height * scale))
-    image_resized = image.resize(resized_size)
-    width, height = image_resized.size
+        resized_size = (int(width * scale), int(height * scale))
+        image_resized = image.resize(resized_size)
+        width, height = image_resized.size
 
-    row.paste(image_resized, (int((200 - width) / 2), int((row_height - height) / 2)))
+        row.paste(
+            image_resized, (int((200 - width) / 2), int((row_height - height) / 2))
+        )
+
     draw = ImageDraw.Draw(row)
-
     title_width = 600
     truncated_title = title
     while font.getsize(truncated_title)[0] > title_width:
@@ -92,29 +109,105 @@ def handler(event, context):
     payload = event["body"]
     data = json.loads(payload)
 
-    proceeds = data["proceeds"]
     user_name = data["user_name"]
-    date_range = data["date_range"]
+    start_date = datetime.datetime.fromisoformat(data["start_date"])
+    end_date = datetime.datetime.fromisoformat(data["end_date"])
+    date_range = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
+
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    supabase: Client = create_client(url, key)
+
+    data = (
+        supabase.table("users").select("user_id").eq("user_name", user_name).execute()
+    )
+    user_id = data["data"][0]["user_id"]
+    data = (
+        supabase.table("proceed_log")
+        .select("*")
+        .eq("user_id", user_id)
+        .gte("created_at", (start_date + datetime.timedelta(hours=-9)).isoformat())
+        .lt("created_at", (end_date + datetime.timedelta(hours=-9)).isoformat())
+        .execute()
+    )
+    proceeds = [
+        ProceedLog(
+            proceed["book_id"],
+            proceed["title"],
+            proceed["url"],
+            proceed["image_url"],
+            proceed["before_proceed"],
+            proceed["after_proceed"],
+            proceed["total"],
+            datetime.datetime.fromisoformat(proceed["created_at"].split(".")[0]),
+        )
+        for proceed in data["data"]
+    ]
+
+    oldest_proceed: Dict[int, ProceedLog] = {}
+    recent_proceed: Dict[int, ProceedLog] = {}
+    for proceed in proceeds:
+        if proceed.book_id in oldest_proceed:
+            if proceed.created_at < oldest_proceed[proceed.book_id].created_at:
+                oldest_proceed[proceed.book_id] = proceed
+        else:
+            oldest_proceed[proceed.book_id] = proceed
+
+        if proceed.book_id in recent_proceed:
+            if proceed.created_at > recent_proceed[proceed.book_id].created_at:
+                recent_proceed[proceed.book_id] = proceed
+        else:
+            recent_proceed[proceed.book_id] = proceed
+
+    proceed_diff = [
+        ProceedLog(
+            book_id,
+            proceed.title,
+            proceed.url,
+            proceed.image_url,
+            oldest_proceed[book_id].before_proceed,
+            proceed.after_proceed,
+            proceed.total,
+            proceed.created_at,
+        )
+        for book_id, proceed in recent_proceed.items()
+    ]
+    print(proceed_diff)
+
+    # 進捗があったものだけに絞る
+    proceed_diff = [
+        proceed
+        for proceed in proceed_diff
+        if proceed.after_proceed - proceed.before_proceed > 0 and proceed.total > 0
+    ]
+    proceed_diff = sorted(
+        proceed_diff,
+        reverse=True,
+        key=lambda x: (x.after_proceed - x.before_proceed) / x.total,
+    )
 
     size = (1200, 630)
     base = Image.new("RGB", size, (256, 256, 256))
 
-    for i, proceed in enumerate(proceeds):
-        image_url = proceed["image_url"]
-        r = requests.get(image_url)
-        suffix = image_url.split(".")[-1]
-        file_name = f"/tmp/{i}.{suffix}"
-        with open(file_name, "wb") as f:
-            f.write(r.content)
-        proceeds[i]["image_file"] = pathlib.Path(file_name)
+    image_files = []
+    for i, proceed in enumerate(proceed_diff):
+        if proceed.image_url != "":
+            r = requests.get(proceed.image_url)
+            suffix = proceed.image_url.split(".")[-1]
+            file_name = f"/tmp/{i}.{suffix}"
+            with open(file_name, "wb") as f:
+                f.write(r.content)
+            image_files.append(pathlib.Path(file_name))
+        else:
+            image_files.append(None)
 
-    for i, proceed in enumerate(proceeds[:3]):
+    for i, proceed in enumerate(proceed_diff[:3]):
         row = create_row(
-            proceed["title"],
-            proceed["image_file"],
-            proceed["before_proceed"],
-            proceed["after_proceed"],
-            proceed["total"],
+            proceed.title,
+            image_files[i],
+            proceed.before_proceed,
+            proceed.after_proceed,
+            proceed.total,
         )
         base.paste(row, (10, (row_height + 10) * i + 10))
 
@@ -128,9 +221,13 @@ def handler(event, context):
         anchor="lt",
     )
 
-    if len(proceeds) > 3:
+    if len(proceed_diff) > 3:
         draw.text(
-            (1150, 570), f"+{len(proceeds) - 3} 項目", (0, 0, 0), font=font, anchor="rt"
+            (1150, 570),
+            f"+{len(proceed_diff) - 3} 項目",
+            (0, 0, 0),
+            font=font,
+            anchor="rt",
         )
 
     base.save("/tmp/out.png")
@@ -156,38 +253,9 @@ if __name__ == "__main__":
         {
             "body": json.dumps(
                 {
-                    "proceeds": [
-                        {
-                            "title": "BERTによる自然言語処理入門",
-                            "image_url": "https://cover.openbd.jp/9784873119205.jpg",
-                            "before_proceed": 90,
-                            "after_proceed": 180,
-                            "total": 180,
-                        },
-                        {
-                            "title": "SVELTE TUTORIAL",
-                            "image_url": "https://svelte.dev/images/twitter-card.png",
-                            "before_proceed": 17,
-                            "after_proceed": 18,
-                            "total": 19,
-                        },
-                        {
-                            "title": "データ解析のための数理モデル入門 本質を捉えた",
-                            "image_url": "https://cover.openbd.jp/9784802612494.jpg",
-                            "before_proceed": 106,
-                            "after_proceed": 220,
-                            "total": 273,
-                        },
-                        {
-                            "title": "BERTによる自然言語処理入門",
-                            "image_url": "https://cover.openbd.jp/9784873119205.jpg",
-                            "before_proceed": 90,
-                            "after_proceed": 180,
-                            "total": 180,
-                        },
-                    ],
                     "user_name": "miyatsuki_shiku",
-                    "date_range": "20210901-20210901",
+                    "start_date": "2021-10-01",
+                    "end_date": "2021-10-31",
                 }
             )
         },
