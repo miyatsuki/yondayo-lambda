@@ -232,13 +232,13 @@ def handler(event, context):
 
     base.save("/tmp/out.png")
 
-    # s3 = boto3.client("s3")  # S3オブジェクトを取得
-    # s3.upload_file(
-    #    "/tmp/out.png",
-    #    "yondayo",
-    #    f"ogp/{user_name}/{date_range}.png",
-    #    ExtraArgs={"ACL": "public-read"},
-    # )
+    s3 = boto3.client("s3")  # S3オブジェクトを取得
+    s3.upload_file(
+        "/tmp/out.png",
+        "yondayo",
+        f"ogp/{user_name}/{date_range}.png",
+        ExtraArgs={"ACL": "public-read"},
+    )
 
     print("end")
 
