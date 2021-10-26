@@ -61,6 +61,7 @@ def handler(event, context):
             datetime.datetime.fromisoformat(proceed["created_at"].split(".")[0]),
         )
         for proceed in data["data"]
+        if proceed["before_proceed"] != proceed["after_proceed"]
     ]
 
     recent_proceed: Dict[int, ProceedLog] = {}
