@@ -20,9 +20,10 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
       - name: push to ecr
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.AWS_ECR_REPO_NAME }}
+          ECR_REPOSITORY: yondayo-lambda-proceed-dev
+          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          AWS_REGION_ID: ${{ secrets.AWS_REGION_ID }}
         run: |
-          docker build -t $ECR_REPOSITORY .
-          docker tag $ECR_REPOSITORY:latest $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker build -t ${ECR_REPOSITORY} .
+          docker tag ${ECR_REPOSITORY}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_ID}.amazonaws.com/${ECR_REPOSITORY}:latest
+          docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_ID}.amazonaws.com/${ECR_REPOSITORY}:latest
