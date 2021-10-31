@@ -24,6 +24,6 @@ jobs:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           AWS_REGION_ID: ${{ secrets.AWS_REGION_ID }}
         run: |
-          docker build -t ${ECR_REPOSITORY} .
+          docker build -t ${ECR_REPOSITORY} ./proceed/Dockerfile
           docker tag ${ECR_REPOSITORY}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_ID}.amazonaws.com/${ECR_REPOSITORY}:latest
           docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION_ID}.amazonaws.com/${ECR_REPOSITORY}:latest
