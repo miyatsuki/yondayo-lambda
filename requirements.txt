@@ -1,0 +1,7 @@
+boto3
+python-dotenv
+fastapi
+pillow
+requests
+supabase
+uvicorn
