@@ -1,7 +1,7 @@
 import datetime
 from fastapi import FastAPI
+import autofill
 
-# import autofill
 # import image
 # import proceed
 
@@ -35,6 +35,5 @@ async def get_image(user_name: str, start_date: str, end_date: str):
 
 @app.get("/autofill")
 async def get_autofill(url: str):
-    # info = autofill.handle(url)
-    # return info
-    return {"message": "Hello World!!"}
+    info = autofill.handle(url)
+    return info
