@@ -7,13 +7,15 @@ import requests
 from supabase import create_client, Client
 from PIL import Image, ImageDraw, ImageFont
 
-font_file = os.environ["FONT_FILE"]
-if not os.exists(font_file):
+font_file = pathlib.Path(os.environ["FONT_FILE"])
+if not font_file.exists():
     s3 = boto3.resource("s3")
-    s3.Bucket("yondayo").download_file(Filename=font_file, Key=f"assets/{font_file}")
+    s3.Bucket("yondayo").download_file(
+        Filename=str(font_file), Key=f"assets/{font_file}"
+    )
 
-font = ImageFont.truetype(font_file, 40)
-small_font = ImageFont.truetype(font_file, 20)
+font = ImageFont.truetype(str(font_file), 40)
+small_font = ImageFont.truetype(str(font_file), 20)
 
 row_height = 180
 
