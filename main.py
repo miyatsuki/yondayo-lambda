@@ -3,7 +3,7 @@ from fastapi import FastAPI
 import autofill
 
 # import image
-# import proceed
+import proceed
 
 app = FastAPI()
 
@@ -18,9 +18,8 @@ async def get_proceed(user_name: str, start_date: str, end_date: str):
     # TODO: timezoneの明示
     start_date = datetime.datetime.strptime(start_date, "%Y%m%d")
     end_date = datetime.datetime.strptime(end_date, "%Y%m%d")
-    # proceeds, summary = proceed.handle(user_name, start_date, end_date)
-    # return {"proceed": proceeds, "summary": summary}
-    return {"message": "Hello World!!"}
+    proceeds, summary = proceed.handle(user_name, start_date, end_date)
+    return {"proceed": proceeds, "summary": summary}
 
 
 @app.get("/image")
