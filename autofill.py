@@ -1,4 +1,4 @@
-import json
+from typing import Any, Dict
 from bs4 import BeautifulSoup
 import requests
 
@@ -38,17 +38,12 @@ def is_isbn(code: str):
         return False
 
 
-def handler(event, context):
-    print(event)
-    payload = event["body"]
-    print(payload)
-    data = json.loads(payload)
-    url: str = data["url"]
-
+def handle(url: str) -> Dict[str, Any]:
     info = {}
+
+    isbn = ""
     if url.startswith("https://www.amazon.co.jp/"):
         path = url.split("/")
-        isbn = ""
         for i in range(1, len(path)):
             if path[i - 1] == "dp" and is_isbn(path[i]):
                 isbn = path[i]
@@ -59,8 +54,4 @@ def handler(event, context):
     if not isbn:
         info = parse_head(url)
 
-    return {"statusCode": 200, "body": json.dumps(info)}
-
-
-if __name__ == "__main__":
-    handler("", "")
+    return info
