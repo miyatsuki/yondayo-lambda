@@ -15,7 +15,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=["https://yondayo-front.*\.vercel\.app"],
+    allow_origin_regex="https://yondayo-front.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
