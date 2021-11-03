@@ -1,15 +1,19 @@
 import datetime
-import json
 import os
 import pathlib
-from typing import Dict, List, NamedTuple
+from typing import Dict, NamedTuple
 import boto3
 import requests
 from supabase import create_client, Client
 from PIL import Image, ImageDraw, ImageFont
 
-font = ImageFont.truetype("KleeOne-Regular.ttf", 40)
-small_font = ImageFont.truetype("KleeOne-Regular.ttf", 20)
+font_file = os.environ["FONT_FILE"]
+if not os.exists(font_file):
+    s3 = boto3.resource("s3")
+    s3.Bucket("yondayo").download_file(Filename=font_file, Key=f"assets/{font_file}")
+
+font = ImageFont.truetype(font_file, 40)
+small_font = ImageFont.truetype(font_file, 20)
 
 row_height = 180
 
