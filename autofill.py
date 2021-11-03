@@ -22,7 +22,11 @@ def fetch_openBD_info(isbn10: str):
 
     title = data[0]["summary"]["title"]
     imageURL = data[0]["summary"]["cover"]
-    total = data[0]["onix"]["DescriptiveDetail"]["Extent"][0]["ExtentValue"]
+
+    if "Extent" in data[0]["onix"]["DescriptiveDetail"]:
+        total = data[0]["onix"]["DescriptiveDetail"]["Extent"][0]["ExtentValue"]
+    else:
+        total = 0
 
     return {"title": title, "imageURL": imageURL, "total": total}
 
