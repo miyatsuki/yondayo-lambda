@@ -4,6 +4,7 @@ build:
   commands:
     pre-build:
       - aws s3 cp s3://yondayo/assets/KleeOne-Regular.ttf .
+      - ls
     build:
       - pip install -U pip wheel setuptools
       - pip install -r requirements.txt
