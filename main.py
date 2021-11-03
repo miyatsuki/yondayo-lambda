@@ -9,12 +9,13 @@ app = FastAPI()
 
 origins = [
     "http://localhost:3000",
-    "https://yondayo-api.herokuapp.com",
+    "https://yondayo.vercel.app",
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=["https://yondayo-front.*\.vercel\.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
